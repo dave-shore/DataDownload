@@ -1,8 +1,8 @@
 from openai import OpenAI
 import pandas as pd
 import numpy as np
-from pymongo import MongoClient
 from tqdm.auto import tqdm
+from utils import *
 
 BASE_PROMPT = """
     Devi generare un diario che copra un intero anno di un utente con sintomi di ansia, depressione e disturbi bipolari.
@@ -67,7 +67,8 @@ def generate_journal(client, base_prompt):
             }
         )
 
-        last_messages = messages[-7:] if len(messages) > 7 else messages
+        queue_length = 5
+        last_messages = messages[-queue_length*2:] if len(messages) > queue_length*2 + 1 else messages
 
         response = client.chat.completions.create(
             model = "gpt-4o-mini",
@@ -87,15 +88,9 @@ def generate_journal(client, base_prompt):
     return messages
 
 
-def insert_into_mongodb(data):
-    client = MongoClient("mongodb://localhost:27017/")
-    db = client["LIA-Psy"]
-    collection = db["demo"]
-    collection.insert_many(data)
-
 
 if __name__ == "__main__":
     api_key = read_api_key()
     openai = OpenAI(api_key=api_key)
     journal = generate_journal(openai, BASE_PROMPT)
-    insert_into_mongodb(journal)
+    insert_into_mongodb(journal, "LIA-Psy", "demo", drop_previous=True)
